@@ -1,0 +1,31 @@
+version: "3.10"
+
+services:
+  base: &default
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ../:/work/
+      - ../.cache:/root/.cache/
+      - /etc/passwd:/etc/passwd:ro
+      - /etc/group:/etc/group:ro
+    image: atomic-rust:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    shm_size: 48gb
+    working_dir: /work/
+
+  tty:
+    <<: *default
+    command: /bin/bash
+    tty: true
+
+  test:
+    <<: *default
+    command: >
+      /bin/bash -c ". build.sh && pytest -s"
