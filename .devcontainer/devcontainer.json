@@ -1,0 +1,17 @@
+{
+    "dockerComposeFile": [
+        "docker-compose.yaml"
+    ],
+    "service": "app",
+    "workspaceFolder": "/work/",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "EditorConfig.EditorConfig",
+                "1yib.rust-bundle",
+                "ms-azuretools.vscode-docker",
+                "redhat.vscode-yaml",
+            ]
+        }
+    }
+}

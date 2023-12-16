@@ -1,0 +1,24 @@
+version: "3.10"
+
+services:
+  base: &default
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ../:/work/
+      - /etc/group:/etc/group:ro
+      - /etc/passwd:/etc/passwd:ro
+    image: atomic-rust:latest
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    shm_size: 48gb
+    working_dir: /work/
+
+  app:
+    <<: *default
+    command: sleep infinity
