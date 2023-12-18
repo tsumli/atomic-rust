@@ -1,7 +1,69 @@
-use std::rc::Rc;
-use std::sync::Arc;
+use std::cell::UnsafeCell;
+use std::collections::VecDeque;
+use std::mem::MaybeUninit;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::Ordering::{Acquire, Relaxed, Release};
+use std::sync::{Condvar, Mutex};
 use std::thread;
 
+pub struct Channel<T> {
+    message: UnsafeCell<MaybeUninit<T>>,
+    in_use: AtomicBool,
+    ready: AtomicBool,
+}
+
+unsafe impl<T> Sync for Channel<T> where T: Send {}
+
+impl<T> Channel<T> {
+    pub fn new() -> Self {
+        Self {
+            message: UnsafeCell::new(MaybeUninit::uninit()),
+            in_use: AtomicBool::new(false),
+            ready: AtomicBool::new(false),
+        }
+    }
+
+    pub unsafe fn send(&self, message: T) {
+        if self.in_use.swap(true, Relaxed) {
+            panic!("can't send more than one message!");
+        }
+        unsafe { (*self.message.get()).write(message) };
+        self.ready.store(true, Release);
+    }
+
+    pub fn is_ready(&self) -> bool {
+        self.ready.load(Relaxed)
+    }
+
+    pub unsafe fn receive(&self) -> T {
+        if !self.ready.swap(false, Acquire) {
+            panic!("no message available!");
+        }
+        unsafe { (*self.message.get()).assume_init_read() }
+    }
+}
+
+impl<T> Drop for Channel<T> {
+    fn drop(&mut self) {
+        if *self.ready.get_mut() {
+            unsafe { self.message.get_mut().assume_init_drop() }
+        }
+    }
+}
+
 fn main() {
-    use std::cell::Cell;
+    let channel = Channel::new();
+    let t = thread::current();
+    unsafe {
+        thread::scope(|s| {
+            s.spawn(|| {
+                channel.send("hello world!");
+                t.unpark();
+            });
+            while !channel.is_ready() {
+                thread::park();
+            }
+            assert_eq!(channel.receive(), "hello world!");
+        });
+    }
 }
